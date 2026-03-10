@@ -1,9 +1,10 @@
 import argparse
 from datetime import date
 import logging
-from os import scandir
+from os import removedirs, scandir
 from pathlib import Path
-from shutil import copytree
+import re
+from shutil import copytree, move
 from sys import platform
 
 import nbtlib
@@ -88,17 +89,20 @@ def parse_args() -> argparse.Namespace:
     Returns:
         argparse.Namespace: The parsed command line arguments.
     """
-    default_prism_path = get_prism_path()
-
     parser = argparse.ArgumentParser(
         prog="Minecraft Creative Copt",
         description="Copies a minecraft world as a creative world.",
     )
 
-    parser.add_argument("--prism-path", default=default_prism_path)
+    parser.add_argument("--prism-path", default=None)
     parser.add_argument("-v", "--verbose", action="store_true")
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if args.prism_path is None:
+        args.prism_path = get_prism_path()
+
+    return args
 
 
 def get_minecraft_folder(instance_path: Path) -> Path:
@@ -190,7 +194,37 @@ def copy_world(world_path: Path) -> Path:
     """
     new_path = Path(str(world_path) + f"_creative{date.today()}")
 
+    if new_path.exists():
+        log.warning(f"{new_path} already exists")
+        overwrite = questionary.confirm(
+            f"{new_path} already exists. Overwrite? [Y/n]"
+        ).ask()
+        if overwrite:
+            log.debug(f"Removing {new_path}...")
+            removedirs(new_path)
+        else:
+            numbers = [
+                int(m.group(1))
+                for path in scandir(new_path.parent)
+                if path.is_dir()
+                and (
+                    m := re.search(
+                        rf"{re.escape(new_path.name)}_old_(\d+)$",
+                        path.name,
+                    )
+                )
+            ]
+
+            next_number = max(numbers, default=0) + 1
+
+            backup_path = new_path.parent / f"{new_path.name}_old_{next_number}"
+            log.debug(f"Renaming {new_path} to {backup_path}...")
+            move(new_path, backup_path)
+            log.debug(f"Renamed {new_path} to {backup_path}")
+
+    log.debug(f"Copying {world_path} to {new_path}...")
     copytree(world_path, new_path)
+    log.debug(f"Copied {world_path} to {new_path}")
     return new_path
 
 
