@@ -50,13 +50,14 @@ def get_prism_path() -> Path:
     raise FileNotFoundError(f"{prism_path} does not exist")
 
 
-def get_prism_instance(prism_path: Path) -> Path:
+def get_prism_instance(prism_path: Path, instance_name: str | None = None) -> Path:
     """Finds and returns the path of a PrismLauncher instance.
 
     If multiple instances are found, the user is prompted to select one.
 
     Args:
         prism_path: The path to the PrismLauncher data directory.
+        instance_name: The name of the instance to select. If None, prompts interactively.
 
     Returns:
         Path: The path to the selected PrismLauncher instance.
@@ -70,6 +71,12 @@ def get_prism_instance(prism_path: Path) -> Path:
         raise FileNotFoundError(f"{instances_path} is not a valid directory")
 
     instances_list = [entry for entry in scandir(instances_path) if entry.is_dir()]
+
+    if instance_name is not None:
+        match = next((i for i in instances_list if i.name == instance_name), None)
+        if match is None:
+            raise FileNotFoundError(f"Could not find instance '{instance_name}'.")
+        return Path(match.path)
 
     if len(instances_list) == 0:
         raise FileNotFoundError("Could not find any instances.")
@@ -90,13 +97,52 @@ def parse_args() -> argparse.Namespace:
         argparse.Namespace: The parsed command line arguments.
     """
     parser = argparse.ArgumentParser(
-        prog="Minecraft Creative Copt",
-        description="Copies a minecraft world as a creative world.",
+        prog="mc-creative-clone",
+        description="Copies a minecraft world and converts it to a creative mode world.",
+        epilog="If no options are provided, the script will run interactively.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    parser.add_argument("--prism-path", default=None)
-    parser.add_argument("-v", "--verbose", action="store_true")
-    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--prism-path",
+        "-p",
+        default=None,
+        metavar="PATH",
+        help="Path to the PrismLauncher data directory. "
+        "Defaults to the standard OS path if not specified.",
+    )
+    parser.add_argument(
+        "--instance",
+        "-i",
+        default=None,
+        metavar="INSTANCE",
+        help="Name of the PrismLauncher instance to use."
+        "Promped interactively if not specified.",
+    )
+    parser.add_argument(
+        "--world",
+        "-w",
+        default=None,
+        metavar="WORLD",
+        help="Name of the world to copy. Prompted interactively if not specified.",
+    )
+    parser.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Overwrite the destination world if it already exists, without prompting.",
+    )
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Enable verbose (debug) logging output.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview actions without making any changes to the filesystem.",
+    )
 
     args = parser.parse_args()
 
@@ -128,13 +174,14 @@ def get_minecraft_folder(instance_path: Path) -> Path:
     return instance_minecraft_dir
 
 
-def get_save_folder(minecraft_folder_path: Path) -> Path:
+def get_save_folder(minecraft_folder_path: Path, world_name: str | None = None) -> Path:
     """Finds and returns the path of a Minecraft world save folder.
 
     If multiple worlds are found, the user is prompted to select one.
 
     Args:
         minecraft_folder_path: The path of the PrismLauncher instance .minecraft folder.
+        world_name: The name of the world to select. If None, prompts interactively.
 
     Returns:
         Path: The path to the selected world save folder.
@@ -147,6 +194,12 @@ def get_save_folder(minecraft_folder_path: Path) -> Path:
         raise FileNotFoundError(f"Could not find saves path in {minecraft_folder_path}")
 
     save_folders = [entry for entry in scandir(instance_save_path) if entry.is_dir()]
+
+    if world_name is not None:
+        match = next((w for w in save_folders if w.name == world_name), None)
+        if match is None:
+            raise FileNotFoundError(f"Could not find world '{world_name}'.")
+        return Path(match.path)
 
     if len(save_folders) == 0:
         raise FileNotFoundError(
@@ -195,7 +248,7 @@ def get_creative_world_path(world_path: Path) -> Path:
     return Path(str(world_path) + f"_creative_{date.today()}")
 
 
-def copy_world(world_path: Path) -> Path:
+def copy_world(world_path: Path, force: bool = False) -> Path:
     """Copies a world folder and returns the path of the new copy.
 
     The world folder is named with the original name suffixed by
@@ -203,6 +256,7 @@ def copy_world(world_path: Path) -> Path:
 
     Args:
         world_path: The path to the world save folder to copy.
+        force: If True, overwrites the destination without prompting.
 
     Returns:
         Path: The path to the newly created world copy.
@@ -210,30 +264,36 @@ def copy_world(world_path: Path) -> Path:
     new_path = get_creative_world_path(world_path)
 
     if new_path.exists():
-        log.warning(f"{new_path} already exists")
-        overwrite = questionary.confirm(f"{new_path} already exists. Overwrite?").ask()
-        if overwrite:
+        if force:
             log.debug(f"Removing {new_path}...")
             rmtree(new_path)
         else:
-            numbers = [
-                int(m.group(1))
-                for path in scandir(new_path.parent)
-                if path.is_dir()
-                and (
-                    m := re.search(
-                        rf"{re.escape(new_path.name)}_old_(\d+)$",
-                        path.name,
+            log.warning(f"{new_path} already exists")
+            overwrite = questionary.confirm(
+                f"{new_path} already exists. Overwrite?"
+            ).ask()
+            if overwrite:
+                log.debug(f"Removing {new_path}...")
+                rmtree(new_path)
+            else:
+                numbers = [
+                    int(m.group(1))
+                    for path in scandir(new_path.parent)
+                    if path.is_dir()
+                    and (
+                        m := re.search(
+                            rf"{re.escape(new_path.name)}_old_(\d+)$",
+                            path.name,
+                        )
                     )
-                )
-            ]
+                ]
 
-            next_number = max(numbers, default=0) + 1
+                next_number = max(numbers, default=0) + 1
 
-            backup_path = new_path.parent / f"{new_path.name}_old_{next_number}"
-            log.debug(f"Renaming {new_path} to {backup_path}...")
-            move(new_path, backup_path)
-            log.debug(f"Renamed {new_path} to {backup_path}")
+                backup_path = new_path.parent / f"{new_path.name}_old_{next_number}"
+                log.debug(f"Renaming {new_path} to {backup_path}...")
+                move(new_path, backup_path)
+                log.debug(f"Renamed {new_path} to {backup_path}")
 
     log.debug(f"Copying {world_path} to {new_path}...")
     copytree(world_path, new_path)
@@ -274,13 +334,13 @@ def main() -> None:
     log.setLevel(logging.DEBUG if args.verbose else logging.INFO)
     log.info("Hello from mc-creative-clone!")
 
-    instance = get_prism_instance(args.prism_path)
+    instance = get_prism_instance(args.prism_path, args.instance)
     log.debug(f"Instance path: {instance}")
 
     minecraft_folder = get_minecraft_folder(instance)
     log.debug(f"Minecraft folder: {minecraft_folder}")
 
-    world = get_save_folder(minecraft_folder)
+    world = get_save_folder(minecraft_folder, args.world)
     log.debug(f"World path: {world}")
 
     new_world = get_creative_world_path(world)
@@ -289,7 +349,7 @@ def main() -> None:
         log.info(f"[DRY RUN] Would patch level.dat at {new_world / 'level.dat'}")
     else:
         log.info(f"Making a copy of {world.name}...")
-        new_world = copy_world(world)
+        new_world = copy_world(world, args.force)
         log.info(f"Copied {world.name}")
 
         new_level_dat = get_level_dat(new_world)
