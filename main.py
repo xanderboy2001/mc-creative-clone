@@ -1,10 +1,10 @@
 import argparse
 from datetime import date
 import logging
-from os import removedirs, scandir
+from os import scandir
 from pathlib import Path
 import re
-from shutil import copytree, move
+from shutil import copytree, move, rmtree
 from sys import platform
 
 import nbtlib
@@ -13,7 +13,7 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 logging.basicConfig(
-    level="NOTSET",
+    level="WARNING",
     format="%(message)s",
     datefmt="[%X]",
     handlers=[RichHandler(rich_tracebacks=True)],
@@ -211,12 +211,10 @@ def copy_world(world_path: Path) -> Path:
 
     if new_path.exists():
         log.warning(f"{new_path} already exists")
-        overwrite = questionary.confirm(
-            f"{new_path} already exists. Overwrite? [Y/n]"
-        ).ask()
+        overwrite = questionary.confirm(f"{new_path} already exists. Overwrite?").ask()
         if overwrite:
             log.debug(f"Removing {new_path}...")
-            removedirs(new_path)
+            rmtree(new_path)
         else:
             numbers = [
                 int(m.group(1))
