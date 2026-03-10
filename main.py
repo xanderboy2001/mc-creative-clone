@@ -1,13 +1,14 @@
 import argparse
+from datetime import date
+import logging
+from os import scandir
+from pathlib import Path
+from shutil import copytree
 from sys import platform
-from os import path, scandir
-import questionary
-from rich.console import Console
 
 import nbtlib
-from datetime import date
-from shutil import copytree
-import logging
+import questionary
+from rich.console import Console
 from rich.logging import RichHandler
 
 logging.basicConfig(
@@ -20,50 +21,73 @@ log = logging.getLogger("mc-creative-clone")
 console = Console()
 
 
-def get_prism_path() -> str:
+def get_prism_path() -> Path:
+    """Detects the OS and returns the PrismLauncher data directory.
+
+    Returns:
+        Path: The path to the PrismLauncher data directory.
+
+    Raises:
+        ValueError: If the current platform is not supported.
+        FileNotFoundError: If the PrismLauncher data directory does not exist.
+    """
     # Detect OS
     if platform == "linux" or platform == "linux2":
         # OS is Linux
-        prism_path = path.expanduser("~/.local/share/PrismLauncher")
+        prism_path = Path("~/.local/share/PrismLauncher").expanduser()
     elif platform == "darwin":
         # OS is MacOS
-        prism_path = path.expanduser("~/Library/Application Support/PrismLauncher")
+        prism_path = Path("~/Library/Application Support/PrismLauncher").expanduser()
     elif platform == "win32":
         # OS is Windows
-        prism_path = path.expanduser("~\\AppData\\Roaming\\PrismLauncher")
+        prism_path = Path("~\\AppData\\Roaming\\PrismLauncher").expanduser()
     else:
-        raise Exception(f"{platform} is invalid")
+        raise ValueError(f"{platform} is invalid")
 
-    if path.exists(prism_path):
+    if prism_path.exists():
         return prism_path
-    else:
-        raise Exception(f"{prism_path} does not exist")
+    raise FileNotFoundError(f"{prism_path} does not exist")
 
 
-def get_prism_instance(prism_path: str) -> str:
+def get_prism_instance(prism_path: Path) -> Path:
+    """Finds and returns the path of a PrismLauncher instance.
 
-    instances_path = path.join(prism_path, "instances")
+    If multiple instances are found, the user is prompted to select one.
 
-    if not path.isdir(instances_path):
-        raise Exception(f"{instances_path} is not a valid directory")
+    Args:
+        prism_path: The path to the PrismLauncher data directory.
+
+    Returns:
+        Path: The path to the selected PrismLauncher instance.
+
+    Raises:
+        FileNotFoundError: If the instances directory or no instances are found.
+    """
+    instances_path = prism_path / "instances"
+
+    if not instances_path.is_dir():
+        raise FileNotFoundError(f"{instances_path} is not a valid directory")
 
     instances_list = [entry for entry in scandir(instances_path) if entry.is_dir()]
 
     if len(instances_list) == 0:
-        raise Exception("Could not find any instances.")
+        raise FileNotFoundError("Could not find any instances.")
 
     if len(instances_list) == 1:
-        return instances_list[0].path
-    else:
-        choices = [
-            questionary.Choice(title=instance.name, value=instance.path)
-            for instance in instances_list
-        ]
-        return questionary.select("Choose an instance", choices=choices).ask()
+        return Path(instances_list[0].path)
+    choices = [
+        questionary.Choice(title=instance.name, value=instance.path)
+        for instance in instances_list
+    ]
+    return Path(questionary.select("Choose an instance", choices=choices).ask())
 
 
 def parse_args() -> argparse.Namespace:
+    """Parses and returns command line arguments.
 
+    Returns:
+        argparse.Namespace: The parsed command line arguments.
+    """
     default_prism_path = get_prism_path()
 
     parser = argparse.ArgumentParser(
@@ -77,57 +101,108 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def get_minecraft_folder(prism_path: str, instance_name: str):
-    instance_path = path.join(prism_path, "instances", instance_name)
+def get_minecraft_folder(instance_path: Path) -> Path:
+    """Finds and returns the .minecraft directory for a given instance.
 
-    instance_minecraft_dir = path.join(instance_path, "minecraft")
-    if not path.isdir(instance_minecraft_dir):
-        instance_minecraft_dir = path.join(instance_path, ".minecraft")
-    if not path.isdir(instance_minecraft_dir):
-        raise Exception(f"Could not find minecraft directory in {instance_path}")
+    Args:
+        instance_path: The path of the PrismLauncher instance.
+
+    Returns:
+        Path: The path to the .minecraft directory.
+
+    Raises:
+        FileNotFoundError: If the .minecraft directory cannot be found.
+    """
+    instance_minecraft_dir = instance_path / "minecraft"
+    if not instance_minecraft_dir.is_dir():
+        instance_minecraft_dir = instance_path / ".minecraft"
+    if not instance_minecraft_dir.is_dir():
+        raise FileNotFoundError(
+            f"Could not find minecraft directory in {instance_path}"
+        )
     return instance_minecraft_dir
 
 
-def get_save_folder(prism_path: str, instance_name: str) -> str:
+def get_save_folder(minecraft_folder_path: Path) -> Path:
+    """Finds and returns the path of a Minecraft world save folder.
 
-    instance_minecraft_dir = get_minecraft_folder(prism_path, instance_name)
+    If multiple worlds are found, the user is prompted to select one.
 
-    instance_save_path = path.join(instance_minecraft_dir, "saves")
-    if not path.isdir(instance_save_path):
-        raise Exception(f"Could not find saves path in {instance_minecraft_dir}")
+    Args:
+        minecraft_folder_path: The path of the PrismLauncher instance .minecraft folder.
+
+    Returns:
+        Path: The path to the selected world save folder.
+
+    Raises:
+        FileNotFoundError: If the saves directory or no save folders are found.
+    """
+    instance_save_path = minecraft_folder_path / "saves"
+    if not instance_save_path.is_dir():
+        raise FileNotFoundError(f"Could not find saves path in {minecraft_folder_path}")
 
     save_folders = [entry for entry in scandir(instance_save_path) if entry.is_dir()]
 
     if len(save_folders) == 0:
-        raise Exception(f"Could not find any save folders in {instance_save_path}.")
+        raise FileNotFoundError(
+            f"Could not find any save folders in {instance_save_path}."
+        )
 
     if len(save_folders) == 1:
-        return save_folders[0].path
-    else:
-        choices = [
-            questionary.Choice(title=world.name, value=world.path)
-            for world in save_folders
-        ]
-        return questionary.select("Choose a world to copy", choices=choices).ask()
+        return Path(save_folders[0].path)
+    choices = [
+        questionary.Choice(title=world.name, value=world.path) for world in save_folders
+    ]
+    return Path(questionary.select("Choose a world to copy", choices=choices).ask())
 
 
-def get_level_dat(world_path: str) -> str:
-    level_dat_path = path.join(world_path, "level.dat")
+def get_level_dat(world_path: Path) -> Path:
+    """Finds and returns the path of a world's level.dat file.
 
-    if not path.isfile(level_dat_path):
-        raise Exception(f"{level_dat_path} is not a valid filepath.")
+    Args:
+        world_path: The path to the world save folder.
+
+    Returns:
+        Path: The path to the level.dat file.
+
+    Raises:
+        FileNotFoundError: If the level.dat file does not exist.
+    """
+    level_dat_path = world_path / "level.dat"
+
+    if not level_dat_path.is_file():
+        raise FileNotFoundError(f"{level_dat_path} is not a valid filepath.")
 
     return level_dat_path
 
 
-def copy_world(world_path: str) -> str:
-    new_path = world_path + f"_creative{date.today()}"
+def copy_world(world_path: Path) -> Path:
+    """Copies a world folder and returns the path of the new copy.
+
+    The world folder is named with the original name suffixed by
+    '_creative' and the current date.
+
+    Args:
+        world_path: The path to the world save folder to copy.
+
+    Returns:
+        Path: The path to the newly created world copy.
+    """
+    new_path = Path(str(world_path) + f"_creative{date.today()}")
 
     copytree(world_path, new_path)
     return new_path
 
 
-def patch_level_dat(level_dat_path: str):
+def patch_level_dat(level_dat_path: Path) -> None:
+    """Patches a level.dat file to enable creative mode and cheats.
+
+    Sets GameType to Creative, enables cheats, and updates the world
+    and player game modes.
+
+    Args:
+        level_dat_path: The path to the level.dat file to patch.
+    """
     nbt_file = nbtlib.load(level_dat_path)
     nbt_data = nbt_file["Data"]
 
@@ -141,11 +216,13 @@ def patch_level_dat(level_dat_path: str):
     nbt_file.save()
 
 
-def launch_prism():
+def launch_prism() -> None:
+    """Launches PrismLauncher with the specified instance and world."""
     return
 
 
-def main():
+def main() -> None:
+    """Main entry point for mc-creative-clone."""
     args = parse_args()
     log.setLevel(logging.DEBUG if args.verbose else logging.INFO)
     log.info("Hello from mc-creative-clone!")
@@ -153,10 +230,13 @@ def main():
     instance = get_prism_instance(args.prism_path)
     log.debug(f"Instance path: {instance}")
 
-    world = get_save_folder(args.prism_path, instance)
+    minecraft_folder = get_minecraft_folder(instance)
+    log.debug(f"Minecraft folder: {minecraft_folder}")
+
+    world = get_save_folder(minecraft_folder)
     log.debug(f"World path: {world}")
 
-    log.info(f"Making a copy of {path.basename(world)}...")
+    log.info(f"Making a copy of {world.name}...")
     new_world = copy_world(world)
 
     new_level_dat = get_level_dat(new_world)
