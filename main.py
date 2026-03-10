@@ -96,6 +96,7 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--prism-path", default=None)
     parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument("--dry-run", action="store_true")
 
     args = parser.parse_args()
 
@@ -180,6 +181,20 @@ def get_level_dat(world_path: Path) -> Path:
     return level_dat_path
 
 
+def get_creative_world_path(world_path: Path) -> Path:
+    """Generates the path for the creative backup world.
+
+    Appends '_creative' and the current date to the original world path.
+
+    Args:
+        world_path: The path to the original world save folder.
+
+    Returns:
+        Path: The path to the creative backup world.
+    """
+    return Path(str(world_path) + f"_creative_{date.today()}")
+
+
 def copy_world(world_path: Path) -> Path:
     """Copies a world folder and returns the path of the new copy.
 
@@ -192,7 +207,7 @@ def copy_world(world_path: Path) -> Path:
     Returns:
         Path: The path to the newly created world copy.
     """
-    new_path = Path(str(world_path) + f"_creative{date.today()}")
+    new_path = get_creative_world_path(world_path)
 
     if new_path.exists():
         log.warning(f"{new_path} already exists")
@@ -270,14 +285,20 @@ def main() -> None:
     world = get_save_folder(minecraft_folder)
     log.debug(f"World path: {world}")
 
-    log.info(f"Making a copy of {world.name}...")
-    new_world = copy_world(world)
+    new_world = get_creative_world_path(world)
+    if args.dry_run:
+        log.info(f"[DRY RUN] Would make a copy of {world.name}")
+        log.info(f"[DRY RUN] Would patch level.dat at {new_world / 'level.dat'}")
+    else:
+        log.info(f"Making a copy of {world.name}...")
+        new_world = copy_world(world)
+        log.info(f"Copied {world.name}")
 
-    new_level_dat = get_level_dat(new_world)
-    log.debug(f"Level.dat path: {new_level_dat}")
-
-    log.info("Patching level.dat...")
-    patch_level_dat(new_level_dat)
+        new_level_dat = get_level_dat(new_world)
+        log.debug(f"Level.dat path: {new_level_dat}")
+        log.debug(f"Patching {new_level_dat}...")
+        patch_level_dat(new_level_dat)
+        log.debug(f"Patched {new_level_dat}")
 
     log.info("Done!")
 
