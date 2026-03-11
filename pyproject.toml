@@ -11,9 +11,15 @@ dependencies = [
     "rich>=14.3.3",
 ]
 
+[project.scripts]
+mc-creative-clone = "main:main"
+
 [dependency-groups]
 dev = [
     "black>=26.3.0",
     "codespell>=2.4.2",
     "prettier>=0.0.7",
 ]
+
+[tool.uv]
+package = true
