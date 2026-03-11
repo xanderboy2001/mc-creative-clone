@@ -69,12 +69,16 @@
         <li><a href="#installation">Installation</a></li>
       </ul>
     </li>
-    <li><a href="#usage">Usage</a></li>
-    <li><a href="#roadmap">Roadmap</a></li>
+    <li>
+      <a href="#usage">Usage</a>
+      <ul>
+        <li><a href="#options">Options></a></li>
+        <li><a href="#examples"><Examples></a></li>
+      </ul>
+    </li>
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
     <li><a href="#contact">Contact</a></li>
-    <li><a href="#acknowledgments">Acknowledgments</a></li>
   </ol>
 </details>
 
@@ -83,24 +87,26 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-[![Product Name Screen Shot][product-screenshot]](https://example.com)
+Minecraft Creative Backup is a Python CLI tool that automates the process of creating creative mode backups of Minecraft worlds managed by PrismLauncher.
 
-Here's a blank template to get started. To avoid retyping too much info, do a search and replace with your text editor for the following: `xanderboy2001`, `mc-creative-clone`, `twitter_handle`, `alexander-e-christian`, `alexanderechristian_client`, `alexanderechristian`, `Minecraft Creative Backup`, `A command-line tool that copies a Minecraft world save, patches it into creative mode with cheats enabled, and launches it through PrismLauncher — all in one command.`, `GPL-3.0-or-later`
+When building or experimenting in Minecraft, it's useful to have a creative mode copy of a survival world - but doing it manually means copying the folder, opening the world, changing the game mode, and enabling cheats. This tool automates all of that in a single command.
 
+### What it does
+
+- Copies a Minecraft world save folder
+- Patches the world's `level.dat` to enable creative mode and cheats
+- Renames the backup with the current date for easy identification
+- Launches the instance directly through PrismLauncher
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 
 ### Built With
 
-* [![Next][Next.js]][Next-url]
-* [![React][React.js]][React-url]
-* [![Vue][Vue.js]][Vue-url]
-* [![Angular][Angular.io]][Angular-url]
-* [![Svelte][Svelte.dev]][Svelte-url]
-* [![Laravel][Laravel.com]][Laravel-url]
-* [![Bootstrap][Bootstrap.com]][Bootstrap-url]
-* [![JQuery][JQuery.com]][JQuery-url]
+* [![Python][Python-badge]][Python-url]
+* [![Rich][Rich-badge]][Rich-url]
+* [![questionary][questionary-badge]][questionary-url]
+* [![nbtlib][nbtlib-badge]][nbtlib-url]
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -109,37 +115,36 @@ Here's a blank template to get started. To avoid retyping too much info, do a se
 <!-- GETTING STARTED -->
 ## Getting Started
 
-This is an example of how you may give instructions on setting up your project locally.
-To get a local copy up and running follow these simple example steps.
 
 ### Prerequisites
 
-This is an example of how to list things you need to use the software and how to install them.
-* npm
-  ```sh
-  npm install npm@latest -g
-  ```
+- Python 3.14 or higher
+- [PrismLauncher](https://prismlauncher.org/) installed and configured with at least one instance and world.
+- [uv](https://docs.astral.sh/uv/) (recommended) or pip
 
 ### Installation
 
-1. Get a free API Key at [https://example.com](https://example.com)
-2. Clone the repo
-   ```sh
+1. Clone the repository
+```sh
    git clone https://github.com/xanderboy2001/mc-creative-clone.git
-   ```
-3. Install NPM packages
-   ```sh
-   npm install
-   ```
-4. Enter your API in `config.js`
-   ```js
-   const API_KEY = 'ENTER YOUR API';
-   ```
-5. Change git remote url to avoid accidental pushes to base project
-   ```sh
-   git remote set-url origin xanderboy2001/mc-creative-clone
-   git remote -v # confirm the changes
-   ```
+   cd mc-creative-clone
+```
+
+2. Install the package
+```sh
+   uv tool install .
+```
+
+   Or with pip:
+```sh
+   pip install .
+```
+
+3. Verify the installation
+```sh
+   mc-creative-clone --help
+```
+
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -148,23 +153,45 @@ This is an example of how to list things you need to use the software and how to
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-Use this space to show useful examples of how a project can be used. Additional screenshots, code examples and demos work well in this space. You may also link to more resources.
+Run the tool interactively - you will be prompted to select an instance and world:
+```sh
+mc-creative-clone
+```
 
-_For more examples, please refer to the [Documentation](https://example.com)_
+Or specify options directly to skip the interactive prompts
+```sh
+mc-creative-clone --instance "My instance" --world "My world"
+```
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+### Options
+
+| **Option** | **Short** | **Description** |
+| --- | --- | --- |
+| `--prism-path PATH` | `-p` | Path to PrismLauncher data directory. Defaults to the standard OS path. |
+| `--instance INSTANCE` | `-i` | Name of the PrismLauncher instance to use. |
+| `--world WORLD` | `-w` | Name of the world to copy. |
+| `--force` | `-f` | Overwrite the destination world if it already exists without prompting. |
+| `--dry-run` | | Preview actions without making any changes to the filesystem. |
+| `--verbose` | `-v` | Enable verbose debug logging output. |
+
+### Examples
+
+Preview what would happen without making any changes:
+```sh
+mc-creative-clone --dry-run --instance "Survival" --world "My World"
+```
 
 
+Force overwrite an existing backup:
+```sh
+mc-creative-clone --force --instance "Survival" --world "My World"
+```
 
-<!-- ROADMAP -->
-## Roadmap
 
-- [ ] Feature 1
-- [ ] Feature 2
-- [ ] Feature 3
-    - [ ] Nested Feature
-
-See the [open issues](https://github.com/xanderboy2001/mc-creative-clone/issues) for a full list of proposed features (and known issues).
+Use a custom PrismLauncher data directory:
+```sh
+mc-creative-clone --prism-path "/path/to/prismlauncher"
+```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -206,20 +233,9 @@ Distributed under the GPL-3.0-or-later. See `LICENSE.txt` for more information.
 <!-- CONTACT -->
 ## Contact
 
-Your Name - [@twitter_handle](https://twitter.com/twitter_handle) - alexanderechristian@alexanderechristian_client.com
+Alexander Christian - alexanderechristian@gmail.com
 
 Project Link: [https://github.com/xanderboy2001/mc-creative-clone](https://github.com/xanderboy2001/mc-creative-clone)
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- ACKNOWLEDGMENTS -->
-## Acknowledgments
-
-* []()
-* []()
-* []()
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -236,24 +252,16 @@ Project Link: [https://github.com/xanderboy2001/mc-creative-clone](https://githu
 [issues-shield]: https://img.shields.io/github/issues/xanderboy2001/mc-creative-clone.svg?style=for-the-badge
 [issues-url]: https://github.com/xanderboy2001/mc-creative-clone/issues
 [license-shield]: https://img.shields.io/github/license/xanderboy2001/mc-creative-clone.svg?style=for-the-badge
-[license-url]: https://github.com/xanderboy2001/mc-creative-clone/blob/master/LICENSE.txt
+[license-url]: https://github.com/xanderboy2001/mc-creative-clone/blob/main/LICENSE
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://linkedin.com/in/alexander-e-christian
 [product-screenshot]: images/screenshot.png
 <!-- Shields.io badges. You can a comprehensive list with many more badges at: https://github.com/inttter/md-badges -->
-[Next.js]: https://img.shields.io/badge/next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white
-[Next-url]: https://nextjs.org/
-[React.js]: https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB
-[React-url]: https://reactjs.org/
-[Vue.js]: https://img.shields.io/badge/Vue.js-35495E?style=for-the-badge&logo=vuedotjs&logoColor=4FC08D
-[Vue-url]: https://vuejs.org/
-[Angular.io]: https://img.shields.io/badge/Angular-DD0031?style=for-the-badge&logo=angular&logoColor=white
-[Angular-url]: https://angular.io/
-[Svelte.dev]: https://img.shields.io/badge/Svelte-4A4A55?style=for-the-badge&logo=svelte&logoColor=FF3E00
-[Svelte-url]: https://svelte.dev/
-[Laravel.com]: https://img.shields.io/badge/Laravel-FF2D20?style=for-the-badge&logo=laravel&logoColor=white
-[Laravel-url]: https://laravel.com
-[Bootstrap.com]: https://img.shields.io/badge/Bootstrap-563D7C?style=for-the-badge&logo=bootstrap&logoColor=white
-[Bootstrap-url]: https://getbootstrap.com
-[JQuery.com]: https://img.shields.io/badge/jQuery-0769AD?style=for-the-badge&logo=jquery&logoColor=white
-[JQuery-url]: https://jquery.com 
+[Python-badge]: https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white
+[Python-url]: https://python.org
+[Rich-badge]: https://img.shields.io/badge/Rich-FAD000?style=for-the-badge&logo=python&logoColor=black
+[Rich-url]: https://github.com/Textualize/rich
+[questionary-badge]: https://img.shields.io/badge/questionary-4a4a55?style=for-the-badge&logo=python&logoColor=white
+[questionary-url]: https://github.com/tmbo/questionary
+[nbtlib-badge]: https://img.shields.io/badge/nbtlib-4a4a55?style=for-the-badge&logo=python&logoColor=white
+[nbtlib-url]: https://github.com/vberlier/nbtlib
