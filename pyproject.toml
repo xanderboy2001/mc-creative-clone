@@ -3,15 +3,16 @@ name = "mc-creative-clone"
 version = "0.1.0"
 description = "Copies a Minecraft world and converts it to a creative mode backup"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.10"
 license = { text = "GPL-3.0-or-later" }
 authors = [{ name = "Alexander Christian", email = "alexanderechristian@gmail.com" }]
 keywords = ["minecraft", "prismlauncher", "nbt"]
 classifiers = [
+    "Topic :: Games/Entertainment",
     "Environment :: Console",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: GNU General Public License v3 or later (GPL3+)"
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)"
 ]
 dependencies = [
     "nbtlib>=2.0.4",
@@ -23,14 +24,18 @@ dependencies = [
 Repository = "https://github.com/xanderboy2001/mc-creative-clone"
 
 [project.scripts]
-mc-creative-clone = "main:main"
+mc-creative-clone = "mc_creative_clone.main:main"
 
 [dependency-groups]
 dev = [
     "black>=26.3.0",
     "codespell>=2.4.2",
-    "ruff>=0.0.1",
+    "ruff>=0.11.0",
 ]
 
 [tool.uv]
 package = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
