@@ -5,7 +5,7 @@ from os import scandir
 from pathlib import Path
 import re
 from shutil import copytree, move, rmtree
-from sys import platform
+from sys import exit, platform
 
 import nbtlib
 import questionary
@@ -87,7 +87,10 @@ def get_prism_instance(prism_path: Path, instance_name: str | None = None) -> Pa
         questionary.Choice(title=instance.name, value=instance.path)
         for instance in instances_list
     ]
-    return Path(questionary.select("Choose an instance", choices=choices).ask())
+    selection = questionary.select("Choose an instance", choices=choices).ask()
+    if selection is None:
+        raise KeyboardInterrupt("User cancelled selection.")
+    return Path(selection)
 
 
 def parse_args() -> argparse.Namespace:
@@ -211,7 +214,10 @@ def get_save_folder(minecraft_folder_path: Path, world_name: str | None = None) 
     choices = [
         questionary.Choice(title=world.name, value=world.path) for world in save_folders
     ]
-    return Path(questionary.select("Choose a world to copy", choices=choices).ask())
+    selection = questionary.select("Choose a world to copy", choices=choices).ask()
+    if selection is None:
+        raise KeyboardInterrupt("User cancelled selection.")
+    return Path(selection)
 
 
 def get_level_dat(world_path: Path) -> Path:
@@ -330,35 +336,39 @@ def launch_prism() -> None:
 
 def main() -> None:
     """Main entry point for mc-creative-clone."""
-    args = parse_args()
-    log.setLevel(logging.DEBUG if args.verbose else logging.INFO)
-    log.info("Hello from mc-creative-clone!")
+    try:
+        args = parse_args()
+        log.setLevel(logging.DEBUG if args.verbose else logging.INFO)
+        log.info("Hello from mc-creative-clone!")
 
-    instance = get_prism_instance(args.prism_path, args.instance)
-    log.debug(f"Instance path: {instance}")
+        instance = get_prism_instance(args.prism_path, args.instance)
+        log.debug(f"Instance path: {instance}")
 
-    minecraft_folder = get_minecraft_folder(instance)
-    log.debug(f"Minecraft folder: {minecraft_folder}")
+        minecraft_folder = get_minecraft_folder(instance)
+        log.debug(f"Minecraft folder: {minecraft_folder}")
 
-    world = get_save_folder(minecraft_folder, args.world)
-    log.debug(f"World path: {world}")
+        world = get_save_folder(minecraft_folder, args.world)
+        log.debug(f"World path: {world}")
 
-    new_world = get_creative_world_path(world)
-    if args.dry_run:
-        log.info(f"[DRY RUN] Would make a copy of {world.name}")
-        log.info(f"[DRY RUN] Would patch level.dat at {new_world / 'level.dat'}")
-    else:
-        log.info(f"Making a copy of {world.name}...")
-        new_world = copy_world(world, args.force)
-        log.info(f"Copied {world.name}")
+        new_world = get_creative_world_path(world)
+        if args.dry_run:
+            log.info(f"[DRY RUN] Would make a copy of {world.name}")
+            log.info(f"[DRY RUN] Would patch level.dat at {new_world / 'level.dat'}")
+        else:
+            log.info(f"Making a copy of {world.name}...")
+            new_world = copy_world(world, args.force)
+            log.info(f"Copied {world.name}")
 
-        new_level_dat = get_level_dat(new_world)
-        log.debug(f"Level.dat path: {new_level_dat}")
-        log.debug(f"Patching {new_level_dat}...")
-        patch_level_dat(new_level_dat)
-        log.debug(f"Patched {new_level_dat}")
+            new_level_dat = get_level_dat(new_world)
+            log.debug(f"Level.dat path: {new_level_dat}")
+            log.debug(f"Patching {new_level_dat}...")
+            patch_level_dat(new_level_dat)
+            log.debug(f"Patched {new_level_dat}")
 
-    log.info("Done!")
+        log.info("Done!")
+    except KeyboardInterrupt:
+        log.info("Aborted")
+        exit(0)
 
 
 if __name__ == "__main__":
