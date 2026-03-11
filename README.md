@@ -65,8 +65,8 @@
     <li>
       <a href="#usage">Usage</a>
       <ul>
-        <li><a href="#options">Options></a></li>
-        <li><a href="#examples"><Examples></a></li>
+        <li><a href="#options">Options</a></li>
+        <li><a href="#examples">Examples</a></li>
       </ul>
     </li>
     <li><a href="#contributing">Contributing</a></li>
@@ -111,11 +111,30 @@ When building or experimenting in Minecraft, it's useful to have a creative mode
 
 ### Prerequisites
 
-- Python 3.14 or higher
+- Python 3.10 or higher
 - [PrismLauncher](https://prismlauncher.org/) installed and configured with at least one instance and world.
-- [uv](https://docs.astral.sh/uv/) (recommended) or pip
 
 ### Installation
+
+#### Arch Linux (AUR)
+
+```sh
+paru -S mc-creative-clone
+```
+
+#### PyPi
+
+With uv (recommended):
+```sh
+uv tool install mc-creative-clone
+```
+
+With pip:
+```sh
+pip install mc-creative-clone
+```
+
+#### From source
 
 1. Clone the repository
 ```sh
