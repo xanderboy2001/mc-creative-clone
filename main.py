@@ -4,7 +4,8 @@ import logging
 from os import scandir
 from pathlib import Path
 import re
-from shutil import copytree, move, rmtree
+from shutil import copytree, move, rmtree, which
+from subprocess import run
 from sys import exit, platform
 
 import nbtlib
@@ -329,8 +330,22 @@ def patch_level_dat(level_dat_path: Path) -> None:
     nbt_file.save()
 
 
-def launch_prism() -> None:
-    """Launches PrismLauncher with the specified instance and world."""
+def launch_prism(prism_path: Path, instance_path: Path) -> None:
+    """Launches PrismLauncher with the specified instance."""
+    prism_executable = which("prismlauncher")
+    if prism_executable is None:
+        raise FileNotFoundError("Could not find prismlauncher executable in PATH.")
+
+    run(  # noqa: S603
+        [
+            prism_executable,
+            "--directory",
+            str(prism_path),
+            "--launch",
+            instance_path.name,
+        ],
+        check=True,
+    )
     return
 
 
