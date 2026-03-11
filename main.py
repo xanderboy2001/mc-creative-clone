@@ -5,7 +5,7 @@ from os import scandir
 from pathlib import Path
 import re
 from shutil import copytree, move, rmtree, which
-from subprocess import run
+from subprocess import CalledProcessError, run
 from sys import exit, platform
 
 import nbtlib
@@ -121,7 +121,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         metavar="INSTANCE",
         help="Name of the PrismLauncher instance to use."
-        "Promped interactively if not specified.",
+        "Prompted interactively if not specified.",
     )
     parser.add_argument(
         "--world",
@@ -276,9 +276,11 @@ def copy_world(world_path: Path, force: bool = False) -> Path:
             rmtree(new_path)
         else:
             log.warning(f"{new_path} already exists")
-            overwrite = questionary.confirm(
-                f"{new_path} already exists. Overwrite?"
-            ).ask()
+            overwrite = None
+            while overwrite is None:
+                overwrite = questionary.confirm(
+                    f"{new_path} already exists. Overwrite?"
+                ).ask()
             if overwrite:
                 log.debug(f"Removing {new_path}...")
                 rmtree(new_path)
@@ -325,13 +327,22 @@ def patch_level_dat(level_dat_path: Path) -> None:
     nbt_data["allowCommands"] = nbtlib.Byte(1)
     nbt_data["GameType"] = nbtlib.Int(1)
     nbt_data["LevelName"] = nbtlib.String(level_name + "_creative")
-    nbt_data["Player"]["playerGameType"] = nbtlib.Int(1)
+    if "Player" in nbt_data:
+        nbt_data["Player"]["playerGameType"] = nbtlib.Int(1)
 
     nbt_file.save()
 
 
 def launch_prism(prism_path: Path, instance_path: Path) -> None:
-    """Launches PrismLauncher with the specified instance."""
+    """Launches PrismLauncher with the specified instance.
+
+    Args:
+        prism_path: The path to the PrismLauncher data directory.
+        instance_path: The path to the PrismLauncher instance to launch.
+
+    Raises:
+        FileNotFoundError: If the PrismLauncher executable cannot be found.
+    """
     prism_executable = which("prismlauncher")
     if prism_executable is None:
         raise FileNotFoundError("Could not find prismlauncher executable in PATH.")
@@ -346,7 +357,6 @@ def launch_prism(prism_path: Path, instance_path: Path) -> None:
         ],
         check=True,
     )
-    return
 
 
 def main() -> None:
@@ -384,6 +394,15 @@ def main() -> None:
     except KeyboardInterrupt:
         log.info("Aborted")
         exit(0)
+    except FileNotFoundError:
+        log.exception("Hit a FileNotFoundError.")
+        exit(1)
+    except ValueError:
+        log.exception("Hit a ValueError.")
+        exit(1)
+    except CalledProcessError:
+        log.exception("Hit a CalledProcessError.")
+        exit(1)
 
 
 if __name__ == "__main__":
