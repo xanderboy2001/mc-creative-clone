@@ -27,13 +27,6 @@
 
 
 
-<!-- PROJECT LOGO -->
-<br />
-<div align="center">
-  <a href="https://github.com/xanderboy2001/mc-creative-clone">
-    <img src="images/logo.png" alt="Logo" width="80" height="80">
-  </a>
-
 <h3 align="center">Minecraft Creative Backup</h3>
 
   <p align="center">
