@@ -1,6 +1,6 @@
 [project]
 name = "mc-creative-clone"
-version = "0.1.0"
+version = "0.1.1"
 description = "Copies a Minecraft world and converts it to a creative mode backup"
 readme = "README.md"
 requires-python = ">=3.10"
