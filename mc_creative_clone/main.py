@@ -279,7 +279,7 @@ def copy_world(world_path: Path, force: bool = False) -> Path:
             overwrite = None
             while overwrite is None:
                 overwrite = questionary.confirm(
-                    f"{new_path} already exists. Overwrite?"
+                    f"{new_path.name} already exists. Overwrite?"
                 ).ask()
             if overwrite:
                 log.debug(f"Removing {new_path}...")
@@ -333,7 +333,7 @@ def patch_level_dat(level_dat_path: Path) -> None:
     nbt_file.save()
 
 
-def launch_prism(prism_path: Path, instance_path: Path) -> None:
+def launch_prism(prism_path: Path, instance_path: Path, world_name: str) -> None:
     """Launches PrismLauncher with the specified instance.
 
     Args:
@@ -347,16 +347,18 @@ def launch_prism(prism_path: Path, instance_path: Path) -> None:
     if prism_executable is None:
         raise FileNotFoundError("Could not find prismlauncher executable in PATH.")
 
-    run(  # noqa: S603
-        [
-            prism_executable,
-            "--directory",
-            str(prism_path),
-            "--launch",
-            instance_path.name,
-        ],
-        check=True,
-    )
+    args = [
+        prism_executable,
+        "--dir",
+        str(prism_path),
+        "--launch",
+        instance_path.name,
+    ]
+
+    if platform == "linux" or platform == "linux2":
+        args += ["--world", world_name]
+
+    run(args, check=True)
 
 
 def main() -> None:
@@ -390,10 +392,22 @@ def main() -> None:
             patch_level_dat(new_level_dat)
             log.debug(f"Patched {new_level_dat}")
 
-            log.info("Launching Minecraft through PrismLauncher...")
-            launch_prism(args.prism_path, instance)
+            shouldLaunch = None
+            while shouldLaunch is None:
+                shouldLaunch = questionary.confirm(
+                    "Would you like to launch the newly created world?",
+                    default=True,
+                ).ask()
+            if shouldLaunch:
+                log.info("Launching Minecraft through PrismLauncher...")
+                launch_prism(args.prism_path, instance, new_world.name)
+            else:
+                log.info("User elected not to launch world.")
 
         log.info("Done!")
+
+        exit(0)
+
     except KeyboardInterrupt:
         log.info("Aborted")
         exit(0)
