@@ -7,6 +7,7 @@ import re
 from shutil import copytree, move, rmtree, which
 from subprocess import CalledProcessError, run
 from sys import exit, platform
+from typing import List
 
 import nbtlib
 import questionary
@@ -147,6 +148,18 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Preview actions without making any changes to the filesystem.",
     )
+    parser.add_argument(
+        "--clean",
+        "-c",
+        action="store_true",
+        help="Clean (delete) creative world copies older than today for a specified survival world. Pass with '--all' or '-a' to delete all creative world copies for the specified survival world.",
+    )
+    parser.add_argument(
+        "--all",
+        "-a",
+        action="store_true",
+        help="Delete all creative world copies (including today's) of a specified survival world. Must be used with --clean.",
+    )
 
     args = parser.parse_args()
 
@@ -178,7 +191,7 @@ def get_minecraft_folder(instance_path: Path) -> Path:
     return instance_minecraft_dir
 
 
-def get_save_folder(minecraft_folder_path: Path, world_name: str | None = None) -> Path:
+def get_world_path(minecraft_folder_path: Path, world_name: str | None = None) -> Path:
     """Finds and returns the path of a Minecraft world save folder.
 
     If multiple worlds are found, the user is prompted to select one.
@@ -215,7 +228,7 @@ def get_save_folder(minecraft_folder_path: Path, world_name: str | None = None) 
     choices = [
         questionary.Choice(title=world.name, value=world.path) for world in save_folders
     ]
-    selection = questionary.select("Choose a world to copy", choices=choices).ask()
+    selection = questionary.select("Choose a world", choices=choices).ask()
     if selection is None:
         raise KeyboardInterrupt("User cancelled selection.")
     return Path(selection)
@@ -361,6 +374,45 @@ def launch_prism(prism_path: Path, instance_path: Path, world_name: str) -> None
     run(args, check=True)
 
 
+def get_old_worlds(survival_world: Path, include_all: bool) -> List[Path]:
+    saves_path = survival_world.parent
+
+    pattern = re.compile(
+        rf"{re.escape(survival_world.name)}_creative_\d{{4}}-\d{{2}}-\d{{2}}"
+    )
+    todays_world_name = survival_world.name + f"_creative_{date.today()}"
+    return [
+        entry
+        for entry in scandir(saves_path)
+        if entry.is_dir()
+        and pattern.search(entry.name)
+        and (include_all or entry.name != todays_world_name)
+    ]
+
+
+def clean_old_worlds(old_worlds: List[Path], force: bool):
+    if not old_worlds:
+        log.warning("No old worlds found.")
+        return
+
+    console.print("The following worlds will be deleted:")
+    for entry in old_worlds:
+        console.print(f"  [red]{entry.name}[/red]")
+
+    if not force:
+        confirm = questionary.confirm("Delete these worlds?", default=True).ask()
+        if not confirm:
+            log.info("User cancelled deletion.")
+            return
+
+    for entry in old_worlds:
+        log.debug(f"Removing {entry.path}...")
+        rmtree(entry.path)
+        log.debug(f"Removed {entry.path}")
+
+    console.print(f"[green]Deleted {len(old_worlds)} old world(s).[/green]")
+
+
 def main() -> None:
     """Main entry point for mc-creative-clone."""
     try:
@@ -368,14 +420,23 @@ def main() -> None:
         log.setLevel(logging.DEBUG if args.verbose else logging.INFO)
         log.info("Hello from mc-creative-clone!")
 
+        if args.all and not args.clean:
+            log.exception("--all must be passed with --clean.")
+            exit(1)
+
         instance = get_prism_instance(args.prism_path, args.instance)
         log.debug(f"Instance path: {instance}")
 
         minecraft_folder = get_minecraft_folder(instance)
         log.debug(f"Minecraft folder: {minecraft_folder}")
 
-        world = get_save_folder(minecraft_folder, args.world)
+        world = get_world_path(minecraft_folder, args.world)
         log.debug(f"World path: {world}")
+
+        if args.clean:
+            old_worlds = get_old_worlds(survival_world=world, include_all=args.all)
+            clean_old_worlds(old_worlds=old_worlds, force=args.force)
+            exit(0)
 
         new_world = get_creative_world_path(world)
         if args.dry_run:
